@@ -88,7 +88,7 @@ def s2_arrive(M):
     drive(R, 1, -2.1, 60, -0.35)
     ease(R["root"]); [ease(x) for x in R["wheels"]]
     lidar_spin(R, 60)
-    cam = W.camera(lens=50, fstop=2.0)
+    cam = W.camera(lens=50, fstop=1.6)
     fe = W.empty("Focus", (0.1, 0, 0.25), R["root"]); focus_on(cam, fe)
     W.cam_key(cam, 1, (0.95, -0.62, 0.13), (-1.4, 0.0, 0.22))
     W.cam_key(cam, 60, (0.9, -0.66, 0.15), (-0.45, 0.0, 0.25))

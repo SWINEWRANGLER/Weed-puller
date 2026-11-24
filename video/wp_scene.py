@@ -622,15 +622,15 @@ def build_field(M, patch=(3.0, 3.0), center=(0, 0), hair=45000, clear=(), length
     tn = tm.node_tree; tb = P(tm)
     tv = tn.nodes.new("ShaderNodeTexNoise"); tv.inputs["Scale"].default_value = 2.5
     tr = tn.nodes.new("ShaderNodeValToRGB")
-    tr.color_ramp.elements[0].color = (0.015, 0.03, 0.012, 1); tr.color_ramp.elements[1].color = (0.06, 0.09, 0.03, 1)
+    tr.color_ramp.elements[0].color = (0.05, 0.075, 0.06, 1); tr.color_ramp.elements[1].color = (0.09, 0.12, 0.08, 1)
     tn.links.new(tv.outputs["Fac"], tr.inputs["Fac"]); tn.links.new(tr.outputs["Color"], tb.inputs["Base Color"])
     from mathutils import noise as mnoise
     rnd = random.Random(4)
     bm = bmesh.new()
-    for i in range(320):
-        a = i / 320 * 2 * math.pi + rnd.random() * 0.02
-        d = 60 + rnd.random() * 18
-        r = 3.5 + rnd.random() * 3.5
+    for i in range(520):
+        a = i / 520 * 2 * math.pi + rnd.random() * 0.02
+        d = 120 + rnd.random() * 25
+        r = 4.5 + rnd.random() * 4.0
         part = bmesh.new()
         bmesh.ops.create_icosphere(part, subdivisions=3, radius=r)
         c = Vector((math.cos(a) * d, math.sin(a) * d, r * 0.8 + rnd.random() * 3))
