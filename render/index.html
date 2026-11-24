@@ -1,0 +1,1191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Weed Puller WP-1</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: equipment spec sheet. Full-bleed 3D bay up top, then map planner, then the data plate. */
+:root {
+  --paper: #eef0e9;
+  --panel: #f8f9f5;
+  --ink: #1c2620;
+  --muted: #5b675f;
+  --rule: #cdd3c8;
+  --accent: #e2611c;      /* hi-vis orange, the robot's livery */
+  --sand: #c9a464;
+  --keep: #2f8a57;
+  --scan: #1f7fb8;
+  --bay: #dfe4da;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #141a16; --panel: #1b231e; --ink: #e4e9e1; --muted: #9aa69d; --rule: #2e3a32;
+    --accent: #f07a38; --sand: #d6b375; --keep: #4fb47b; --scan: #4aa8de; --bay: #0f1411;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #141a16; --panel: #1b231e; --ink: #e4e9e1; --muted: #9aa69d; --rule: #2e3a32;
+  --accent: #f07a38; --sand: #d6b375; --keep: #4fb47b; --scan: #4aa8de; --bay: #0f1411;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 15px/1.55 var(--body);
+}
+.wrap {
+  max-width: 1240px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+header.top { padding-block: 28px 18px; display: flex; flex-wrap: wrap; gap: 12px 32px; align-items: end; justify-content: space-between; }
+.model { font: 600 13px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 700 clamp(40px, 7vw, 76px)/.92 var(--display); letter-spacing: -.01em; margin: 6px 0 8px; text-transform: uppercase; text-wrap: balance; }
+.lede { max-width: 62ch; color: var(--muted); margin: 0; }
+.plate { display: grid; grid-template-columns: repeat(4, auto); gap: 0; border: 1.5px solid var(--ink); font-family: var(--mono); font-size: 12px; }
+.plate div { padding: 8px 12px; border-right: 1px solid var(--rule); }
+.plate div:last-child { border-right: 0; }
+.plate b { display: block; font: 600 22px/1.1 var(--display); letter-spacing: .02em; }
+.plate span { color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-size: 10.5px; }
+
+/* 3D bay */
+.bay { position: relative; background: var(--bay); border-block: 1.5px solid var(--ink); }
+#stage { position: relative; height: clamp(440px, 68vh, 760px); overflow: hidden; touch-action: none; }
+#stage canvas { display: block; }
+#overlay { position: absolute; inset: 0; pointer-events: none; }
+.label3d {
+  position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
+  font: 500 11px/1 var(--mono); color: #1c2620; background: rgba(248,249,245,.92);
+  border: 1px solid #1c2620; padding: 4px 6px; transform: translate(10px, -50%);
+}
+.label3d::before { content: ""; position: absolute; left: -10px; top: 50%; width: 10px; height: 1px; background: #1c2620; }
+.label3d i { font-style: normal; color: #e2611c; margin-right: 5px; font-weight: 600; }
+.hud { position: absolute; display: flex; flex-direction: column; gap: 8px; }
+.hud.tl { top: 14px; left: max(14px, env(safe-area-inset-left, 0px)); }
+.hud.tr { top: 14px; right: max(14px, env(safe-area-inset-right, 0px)); align-items: end; }
+.card {
+  background: rgba(248,249,245,.94); color: #1c2620; border: 1px solid #1c2620;
+  font: 12px/1.4 var(--mono); padding: 10px 12px;
+}
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; counter-reset: s; }
+.steps li { counter-increment: s; display: flex; gap: 8px; align-items: center; color: #6b776f; }
+.steps li::before { content: counter(s, decimal-leading-zero); font-size: 10px; width: 18px; }
+.steps li.on { color: #1c2620; font-weight: 600; }
+.steps li.on::after { content: ""; width: 7px; height: 7px; background: #e2611c; margin-left: auto; }
+.card h4 { margin: 0 0 6px; font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: #5b675f; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; justify-content: end; max-width: 440px; }
+button, .chip {
+  font: 500 12px/1 var(--mono); padding: 8px 10px; border: 1px solid #1c2620; background: #f8f9f5; color: #1c2620;
+  cursor: pointer; border-radius: 0;
+}
+button[aria-pressed="true"] { background: #1c2620; color: #f8f9f5; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.readout { display: grid; grid-template-columns: auto auto; gap: 2px 14px; }
+.readout span { color: #5b675f; }
+.speed { display: flex; gap: 8px; align-items: center; }
+.speed input { width: 110px; accent-color: #e2611c; }
+.vision-tag { position: absolute; font: 600 10px/1 var(--mono); letter-spacing: .1em; color: #fff; background: #1c2620; padding: 4px 6px; pointer-events: none; }
+.caption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; padding-block: 10px; font: 12px/1.4 var(--mono); color: var(--muted); }
+
+/* sections */
+section { padding-block: 44px 8px; }
+h2 { font: 700 34px/1 var(--display); text-transform: uppercase; letter-spacing: .01em; margin: 0 0 6px; text-wrap: balance; }
+h3 { font: 600 20px/1.1 var(--display); text-transform: uppercase; letter-spacing: .03em; margin: 0 0 8px; }
+.sub { color: var(--muted); max-width: 70ch; margin: 0 0 20px; }
+.planner { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.mapbox { border: 1.5px solid var(--ink); background: var(--panel); position: relative; }
+#map { display: block; width: 100%; height: auto; cursor: crosshair; touch-action: none; }
+.side { display: grid; gap: 16px; }
+.side .grp { border-top: 1.5px solid var(--ink); padding-top: 10px; display: grid; gap: 8px; }
+.legend { display: grid; gap: 6px; font-size: 13px; }
+.legend label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.sw { width: 22px; height: 12px; flex: none; border: 1.5px solid; }
+.stat { display: flex; justify-content: space-between; font: 13px/1.3 var(--mono); border-bottom: 1px dashed var(--rule); padding-bottom: 4px; font-variant-numeric: tabular-nums; }
+.stat b { font-weight: 500; }
+.side button { background: var(--panel); color: var(--ink); border-color: var(--ink); }
+.hint { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.grid3 > div { border-top: 1.5px solid var(--ink); padding-top: 12px; min-width: 0; }
+.grid3 p, .grid3 li { color: var(--muted); font-size: 14.5px; }
+.grid3 ul { padding-left: 18px; margin: 0; }
+.grid3 strong { color: var(--ink); font-weight: 600; }
+.tablewrap { overflow-x: auto; border: 1.5px solid var(--ink); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 560px; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font: 500 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); width: 26%; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tr:last-child td, tr:last-child th { border-bottom: 0; }
+.seq { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border: 1.5px solid var(--ink); counter-reset: q; }
+.seq li { counter-increment: q; padding: 14px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); min-width: 0; }
+.seq li::before { content: counter(q, decimal-leading-zero); display: block; font: 600 12px/1 var(--mono); color: var(--accent); margin-bottom: 6px; }
+.seq b { display: block; font: 600 17px/1.1 var(--display); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 4px; }
+.seq span { font-size: 13.5px; color: var(--muted); }
+footer { padding-block: 40px 48px; color: var(--muted); font: 12px/1.5 var(--mono); }
+
+@media (max-width: 900px) {
+  .planner { grid-template-columns: minmax(0, 1fr); }
+  .grid3 { grid-template-columns: minmax(0, 1fr); }
+  .seq { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .plate { grid-template-columns: repeat(2, auto); }
+  .plate div:nth-child(2) { border-right: 0; }
+  .plate div:nth-child(-n+2) { border-bottom: 1px solid var(--rule); }
+  .hud.tl .card.cycle { display: none; }
+  .btns { max-width: 230px; }
+  .seq { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="model">Model WP-1 · autonomous spot weeder</div>
+      <h1>Weed Puller WP-1</h1>
+      <p class="lede">A carry-sized robot that finds weeds by species, pulls them out root and all with a four-tine plunge head, then backfills the hole with sand the way a greenkeeper repairs a divot. It works inside a perimeter you set, stays out of the zones you mark, and maps the property on its first run.</p>
+    </div>
+    <div class="plate" aria-label="Key dimensions">
+      <div><span>L × W × H</span><b>620×450×390</b><span>mm</span></div>
+      <div><span>Mass, dry</span><b>18.5</b><span>kg</span></div>
+      <div><span>Plunge depth</span><b>40–130</b><span>mm</span></div>
+      <div><span>Sand tank</span><b>4.0</b><span>L · ~200 holes</span></div>
+    </div>
+  </header>
+</div>
+
+<div class="bay">
+  <div id="stage">
+    <div id="overlay"></div>
+    <div class="hud tl">
+      <div class="card cycle">
+        <h4>Pull cycle</h4>
+        <ol class="steps" id="steps">
+          <li>Patrol</li><li>Detect &amp; classify</li><li>Align over crown</li><li>Plunge tines</li>
+          <li>Close on root</li><li>Twist &amp; extract</li><li>Drop to bin</li><li>Step to nozzle</li><li>Backfill sand</li>
+        </ol>
+      </div>
+      <div class="card readout" id="readout" aria-live="polite">
+        <span>Pulled</span><b id="r-pulled">0</b>
+        <span>Last ID</span><b id="r-last">—</b>
+        <span>Sand</span><b id="r-sand">4.00 L</b>
+        <span>RTK fix</span><b>±1.4 cm</b>
+      </div>
+    </div>
+    <div class="hud tr">
+      <div class="btns" role="group" aria-label="Camera views">
+        <button id="v-over" aria-pressed="true">Overview</button>
+        <button id="v-head" aria-pressed="false">Extraction close-up</button>
+        <button id="v-side" aria-pressed="false">Side elevation</button>
+        <button id="v-carry" aria-pressed="false">Transport</button>
+      </div>
+      <div class="btns" role="group" aria-label="Display options">
+        <button id="t-cut" aria-pressed="false">Cutaway shell</button>
+        <button id="t-lab" aria-pressed="true">Labels</button>
+        <button id="t-play" aria-pressed="true">Running</button>
+      </div>
+      <div class="card speed"><label for="spd">Speed</label><input id="spd" type="range" min="0.25" max="3" step="0.25" value="1"><b id="spd-v">1×</b></div>
+    </div>
+  </div>
+</div>
+<div class="wrap caption">
+  <span>Drag to orbit · scroll or pinch to zoom · inset at lower right is the robot's down-looking vision camera</span>
+  <span>Blue boxes: scanning · orange: target weed · green: keep</span>
+</div>
+
+<div class="wrap">
+  <section id="map-section">
+    <h2>Work area planner</h2>
+    <p class="sub">First run: the robot drives the fence line with LiDAR and RTK-GNSS, snaps it to the cadastral parcel, and records trees, sheds and tanks as obstacles. You then set the operating perimeter and drag out exclusion zones. Coverage lanes are recalculated around everything. Drag on the map to add a zone.</p>
+    <div class="planner">
+      <div class="mapbox"><canvas id="map" width="1120" height="760" aria-label="Property map with boundary, operating perimeter, exclusion zones, obstacles and coverage path"></canvas></div>
+      <div class="side">
+        <div class="grp">
+          <h3>Layers</h3>
+          <div class="legend">
+            <label><input type="checkbox" id="l-bound" checked><span class="sw" style="border-color:#1c2620;background:transparent"></span>Property boundary (auto-mapped)</label>
+            <label><input type="checkbox" id="l-perim" checked><span class="sw" style="border-color:#e2611c;border-style:dashed"></span>Operating perimeter</label>
+            <label><input type="checkbox" id="l-excl" checked><span class="sw" style="border-color:#b8362b;background:rgba(184,54,43,.18)"></span>Exclusion zones</label>
+            <label><input type="checkbox" id="l-obs" checked><span class="sw" style="border-color:#3a4a40;background:#7d8f80"></span>Obstacles (LiDAR)</label>
+            <label><input type="checkbox" id="l-path" checked><span class="sw" style="border-color:#1f7fb8;border-width:0 0 2px"></span>Coverage lanes</label>
+          </div>
+        </div>
+        <div class="grp">
+          <h3>Coverage</h3>
+          <div class="stat"><span>Property</span><b id="s-prop">—</b></div>
+          <div class="stat"><span>Operating area</span><b id="s-op">—</b></div>
+          <div class="stat"><span>Excluded</span><b id="s-ex">—</b></div>
+          <div class="stat"><span>Full pass @ 0.25 m/s</span><b id="s-time">—</b></div>
+          <div class="stat"><span>Battery swaps</span><b id="s-bat">—</b></div>
+          <p class="hint">Lanes drawn at 4 m for legibility. The robot runs 0.5 m lanes, matching the vision camera's ground footprint.</p>
+        </div>
+        <div class="grp">
+          <button id="m-auto">Replay auto-map run</button>
+          <button id="m-clear">Remove zones I added</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The extraction cycle</h2>
+    <p class="sub">The robot stops over each weed, pulls it, then rolls forward exactly 180 mm so the sand nozzle sits over the same hole. Nothing is dug and no soil is turned over.</p>
+    <ol class="seq">
+      <li><b>Detect</b><span>The down-looking camera under a shade hood with an LED ring gives even light at any time of day. An on-board model flags plants; species ID confirms the target.</span></li>
+      <li><b>Align</b><span>The crown is located to ±5 mm in the image and the robot creeps until the tine hub is centred over it.</span></li>
+      <li><b>Plunge</b><span>Four 8 mm stainless tines enter splayed, forming a 60 mm ring around the crown. Depth is set per species: 60 mm for clover, 120 mm for a dandelion taproot.</span></li>
+      <li><b>Close &amp; twist</b><span>Tines pivot inward under the root ball, the head turns 30° to shear fine roots, then lifts at 40 mm/s to avoid snapping the taproot.</span></li>
+      <li><b>Bin</b><span>A wiper plate strips the plant into a sealed 6 L rear bin, so seeds don't drop back on the lawn.</span></li>
+      <li><b>Step</b><span>RTK and wheel odometry move the robot 180 mm forward, putting the nozzle over the hole.</span></li>
+      <li><b>Backfill</b><span>An auger meters 15–30 ml of dry washed sand, scaled to plunge depth. Like a divot repair, it keeps the surface level and lets turf close over.</span></li>
+      <li><b>Log</b><span>Each pull is saved with GPS position, species and photo, building a weed-pressure heatmap over the seasons.</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Systems</h2>
+    <div class="grid3">
+      <div>
+        <h3>Vision &amp; species ID</h3>
+        <p>Two-stage, so it keeps working without signal in a back paddock.</p>
+        <ul>
+          <li><strong>On-board detector</strong> on an NVIDIA Jetson Orin Nano: a YOLO-class model finds plants and marks weed vs. keep in real time. Fine-tuned on open weed datasets such as DeepWeeds, plus your own lawn.</li>
+          <li><strong>Species confirmation</strong> through the <strong>Plant.id API (Kindwise)</strong>, which identifies weeds from a photo with a confidence score. <strong>Pl@ntNet</strong>'s API is the fallback. Calls are queued offline and synced later.</li>
+          <li>A keep-list protects natives, clover or anything else you choose.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Location &amp; mapping</h3>
+        <ul>
+          <li><strong>RTK-GNSS</strong> (u-blox ZED-F9P class) for ±2 cm positioning, with corrections from AUSCORS/NTRIP or a base station.</li>
+          <li><strong>2D LiDAR + IMU</strong> to trace fences, hedges and walls and pick up trees, tanks and sheds as obstacles.</li>
+          <li>The auto-map snaps to your cadastral parcel. It shows the fence line it found, but you confirm the boundary before the first job. A fence isn't always the title line.</li>
+          <li>Geofence: perimeter plus any number of exclusion zones. The robot stops if it drifts 0.3 m past an edge.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Soil care &amp; transport</h3>
+        <ul>
+          <li><strong>Low ground pressure:</strong> 18.5 kg on four 90 mm-wide low-pressure tyres, about 12 kPa. That's less than a person walking.</li>
+          <li><strong>Small footprint:</strong> about 30 cm³ of soil displaced per pull, all of it replaced with sand. Nothing is turned over.</li>
+          <li><strong>ATV-ready:</strong> two side carry handles, antenna mast folds flat, 620 × 450 mm fits a standard rear rack. Strap points at all four corners.</li>
+          <li>Hot-swap 36 V 10 Ah pack, about 4 h per charge.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Specification</h2>
+    <div class="tablewrap">
+      <table>
+        <tr><th>Envelope</th><td class="num">620 L × 450 W × 390 H mm (mast folded) · 560 H mast up</td></tr>
+        <tr><th>Mass</th><td class="num">18.5 kg dry · 24.5 kg with full sand tank</td></tr>
+        <tr><th>Drive</th><td>4WD skid-steer hub motors, 220 mm × 90 mm low-pressure tyres, 0.25 m/s working, 0.8 m/s transit, 15° slopes</td></tr>
+        <tr><th>Extraction head</th><td>4 × 8 mm 316 stainless tines on a 30 mm pivot circle, lead-screw plunge with 250 N thrust, 0–130 mm depth, 30° shear twist, force sensing to detect rock</td></tr>
+        <tr><th>Backfill</th><td>4.0 L sealed hopper with level window, auger metering 15–30 ml per hole, 180 mm aft of tine axis</td></tr>
+        <tr><th>Weed bin</th><td>6 L rear bin, lift-out, sealed lid</td></tr>
+        <tr><th>Vision</th><td>Down-looking 12 MP global-shutter camera with shade hood and LED ring; forward stereo pair for obstacles and people</td></tr>
+        <tr><th>Compute</th><td>Jetson Orin Nano 8 GB, ROS 2</td></tr>
+        <tr><th>Positioning</th><td>Dual-band RTK-GNSS, 2D LiDAR (12 m), 9-axis IMU, wheel odometry</td></tr>
+        <tr><th>Safety</th><td>Mushroom e-stop, bumper switch, stereo person detection, geofence watchdog, head locks up when lifted (tilt sensor)</td></tr>
+        <tr><th>Connectivity</th><td>LTE-M + Wi-Fi + LoRa to base. Phone app for maps, zones, schedules and the pull log</td></tr>
+        <tr><th>Power</th><td>36 V 10 Ah Li-ion, hot-swap, about 4 h runtime</td></tr>
+      </table>
+    </div>
+  </section>
+</div>
+<footer class="wrap">WP-1 concept design · render is an illustrative model, not engineering CAD.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+"use strict";
+const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------------------------------------------------------------- 3D */
+const stage = document.getElementById("stage");
+const overlay = document.getElementById("overlay");
+THREE.ColorManagement.legacyMode = false;
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+stage.insertBefore(renderer.domElement, overlay);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xcfdccf);
+scene.fog = new THREE.Fog(0xcfdccf, 6, 16);
+
+const camera = new THREE.PerspectiveCamera(38, 1, 0.02, 60);
+camera.position.set(1.5, 0.95, 1.55);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 0.35;
+controls.maxDistance = 5;
+controls.maxPolarAngle = Math.PI * 0.495;
+controls.target.set(0, 0.18, 0);
+
+scene.add(new THREE.HemisphereLight(0xf2f6ff, 0x5a4a32, 0.75));
+const sun = new THREE.DirectionalLight(0xfff3e0, 1.6);
+sun.position.set(2.5, 4, 1.8);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -2; sun.shadow.camera.right = 2;
+sun.shadow.camera.top = 2; sun.shadow.camera.bottom = -2;
+sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 10;
+sun.shadow.bias = -0.0004;
+scene.add(sun); scene.add(sun.target);
+
+/* ground texture: turf with bare soil patches */
+function makeTurf() {
+  const c = document.createElement("canvas"); c.width = c.height = 512;
+  const g = c.getContext("2d");
+  g.fillStyle = "#5f7a3c"; g.fillRect(0, 0, 512, 512);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 26; i++) {
+    const x = rnd() * 512, y = rnd() * 512, r = 20 + rnd() * 60;
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, "rgba(120,96,62,.55)"); grd.addColorStop(1, "rgba(120,96,62,0)");
+    g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  }
+  for (let i = 0; i < 26000; i++) {
+    const x = rnd() * 512, y = rnd() * 512, l = 2 + rnd() * 5, a = rnd() * 6.28;
+    const s = 70 + rnd() * 60;
+    g.strokeStyle = `rgba(${s * .55 | 0},${s | 0},${s * .35 | 0},${.35 + rnd() * .4})`;
+    g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(30, 30);
+  t.encoding = THREE.sRGBEncoding; t.anisotropy = 8;
+  return t;
+}
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ map: makeTurf(), roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
+scene.add(ground);
+
+/* materials */
+const M = {
+  shell: new THREE.MeshStandardMaterial({ color: 0xe0581a, roughness: 0.45, metalness: 0.05 }),
+  frame: new THREE.MeshStandardMaterial({ color: 0x2a312c, roughness: 0.6, metalness: 0.3 }),
+  alu: new THREE.MeshStandardMaterial({ color: 0xb9bfbb, roughness: 0.35, metalness: 0.8 }),
+  steel: new THREE.MeshStandardMaterial({ color: 0xd8dcdc, roughness: 0.22, metalness: 0.95 }),
+  tyre: new THREE.MeshStandardMaterial({ color: 0x1b1c1c, roughness: 0.95 }),
+  hub: new THREE.MeshStandardMaterial({ color: 0x48504a, roughness: 0.5, metalness: 0.4 }),
+  glass: new THREE.MeshStandardMaterial({ color: 0x0f1a22, roughness: 0.1, metalness: 0.6 }),
+  window: new THREE.MeshStandardMaterial({ color: 0xbfd8e0, roughness: 0.05, transparent: true, opacity: 0.35 }),
+  sand: new THREE.MeshStandardMaterial({ color: 0xd8b878, roughness: 1 }),
+  red: new THREE.MeshStandardMaterial({ color: 0xc8231c, roughness: 0.4 }),
+  yellow: new THREE.MeshStandardMaterial({ color: 0xf1c21b, roughness: 0.5 }),
+  led: new THREE.MeshStandardMaterial({ color: 0x9fe3ff, emissive: 0x6fcff7, emissiveIntensity: 1.2 }),
+  status: new THREE.MeshStandardMaterial({ color: 0x5ee08a, emissive: 0x3ccf6e, emissiveIntensity: 1 }),
+  rubber: new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: 0.9 })
+};
+const shellMats = [M.shell];
+
+function box(w, h, d, m, x, y, z, parent) {
+  const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true;
+  (parent || robot).add(o); return o;
+}
+function cyl(rt, rb, h, m, x, y, z, parent, seg) {
+  const o = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 24), m);
+  o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true;
+  (parent || robot).add(o); return o;
+}
+function roundedBox(w, h, d, r, m) {
+  const s = new THREE.Shape();
+  const x = -w / 2, y = -d / 2;
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + d - r); s.quadraticCurveTo(x + w, y + d, x + w - r, y + d);
+  s.lineTo(x + r, y + d); s.quadraticCurveTo(x, y + d, x, y + d - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  // tine opening + nozzle opening through the shell
+  const hole = new THREE.Path(); hole.absarc(0, 0, 0.032, 0, Math.PI * 2, true); s.holes.push(hole);
+  const g = new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: true, bevelSize: 0.012, bevelThickness: 0.012, bevelSegments: 3, curveSegments: 8 });
+  g.rotateX(-Math.PI / 2); g.translate(0, -h / 2, 0);
+  const o = new THREE.Mesh(g, m); o.castShadow = true; o.receiveShadow = true; return o;
+}
+
+/* robot: +x is forward. ground clearance 140 mm */
+const robot = new THREE.Group();
+scene.add(robot);
+const anchors = {}; // label anchors in robot space
+
+// chassis frame (lower deck) and shell
+box(0.56, 0.03, 0.38, M.frame, 0, 0.155, 0);
+const shell = roundedBox(0.58, 0.13, 0.40, 0.05, M.shell);
+shell.position.set(0, 0.245, 0); robot.add(shell);
+box(0.6, 0.012, 0.42, M.frame, 0, 0.317, 0); // top deck plate edge
+// belly skirt hint
+box(0.5, 0.02, 0.34, M.frame, 0, 0.17, 0);
+
+// wheels: wide low-pressure tyres
+const wheels = [];
+[[0.215, 0.255], [0.215, -0.255], [-0.215, 0.255], [-0.215, -0.255]].forEach(([x, z]) => {
+  const wg = new THREE.Group(); wg.position.set(x, 0.11, z); robot.add(wg);
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.09, 36), M.tyre);
+  t.rotation.x = Math.PI / 2; t.castShadow = true; wg.add(t);
+  const tor = new THREE.Mesh(new THREE.TorusGeometry(0.098, 0.016, 10, 36), M.tyre);
+  tor.position.z = 0.045 * Math.sign(z); wg.add(tor);
+  const h = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.094, 24), M.hub);
+  h.rotation.x = Math.PI / 2; wg.add(h);
+  for (let i = 0; i < 5; i++) { // tread blocks so rotation is visible
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.012, 0.088), M.rubber);
+    const a = i / 5 * Math.PI * 2; b.position.set(Math.cos(a) * 0.111, Math.sin(a) * 0.111, 0); b.rotation.z = a; wg.add(b);
+  }
+  wheels.push(wg);
+});
+anchors.tyre = new THREE.Vector3(-0.215, 0.05, 0.31);
+
+// front bumper
+box(0.03, 0.05, 0.44, M.rubber, 0.315, 0.2, 0);
+
+// vision hood (down-looking camera under a shade hood with LED ring)
+const hood = new THREE.Group(); hood.position.set(0.39, 0, 0); robot.add(hood);
+box(0.14, 0.012, 0.22, M.frame, 0, 0.27, 0, hood);
+box(0.14, 0.08, 0.008, M.frame, 0, 0.23, 0.106, hood);
+box(0.14, 0.08, 0.008, M.frame, 0, 0.23, -0.106, hood);
+box(0.008, 0.08, 0.22, M.frame, 0.066, 0.23, 0, hood);
+const hoodLight = new THREE.PointLight(0xeaf6ff, 0.7, 0.6, 2); hoodLight.position.set(0, 0.24, 0); hood.add(hoodLight);
+box(0.04, 0.03, 0.2, M.frame, -0.07, 0.25, 0, hood); // bracket
+cyl(0.022, 0.022, 0.04, M.glass, 0, 0.245, 0, hood);
+const ring = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.006, 8, 30), M.led);
+ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.258, 0); hood.add(ring);
+anchors.vision = new THREE.Vector3(0.45, 0.2, 0.11);
+
+// forward stereo pair + status bar
+box(0.03, 0.035, 0.16, M.frame, 0.29, 0.345, 0);
+[-0.05, 0.05].forEach(z => { const l = cyl(0.011, 0.011, 0.01, M.glass, 0.306, 0.345, z); l.rotation.z = Math.PI / 2; });
+box(0.006, 0.01, 0.3, M.status, 0.3, 0.29, 0);
+anchors.stereo = new THREE.Vector3(0.31, 0.36, -0.08);
+
+// LiDAR puck
+cyl(0.04, 0.045, 0.05, M.frame, 0.2, 0.348, 0);
+const lidarHead = cyl(0.036, 0.036, 0.025, M.glass, 0.2, 0.384, 0);
+cyl(0.04, 0.04, 0.01, M.frame, 0.2, 0.401, 0);
+anchors.lidar = new THREE.Vector3(0.2, 0.41, 0.04);
+
+// sand hopper (aft of tine axis by 180 mm)
+const HOP_X = -0.18;
+const hop = new THREE.Group(); hop.position.set(HOP_X, 0.323, 0.0); robot.add(hop);
+const hopBody = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.13, 32, 1, true), M.shell);
+hopBody.position.y = 0.065; hopBody.castShadow = true; hop.add(hopBody); shellMats.push(M.shell);
+const hopWin = new THREE.Mesh(new THREE.CylinderGeometry(0.0855, 0.0855, 0.11, 32, 1, true, -0.5, 1.0), M.window);
+hopWin.position.y = 0.065; hop.add(hopWin);
+const sandFill = new THREE.Mesh(new THREE.CylinderGeometry(0.082, 0.082, 1, 32), M.sand);
+hop.add(sandFill);
+const lid = cyl(0.09, 0.09, 0.016, M.frame, 0, 0.138, 0, hop);
+cyl(0.03, 0.03, 0.012, M.alu, 0, 0.15, 0, hop);
+anchors.hopper = new THREE.Vector3(HOP_X, 0.47, 0.09);
+// auger tube + nozzle down through the deck to 60 mm above ground
+cyl(0.014, 0.014, 0.2, M.alu, HOP_X, 0.18, 0);
+const nozzle = cyl(0.016, 0.009, 0.05, M.alu, HOP_X, 0.065, 0);
+anchors.nozzle = new THREE.Vector3(HOP_X, 0.06, 0.03);
+
+// RTK GNSS mast (folds) + mushroom antenna
+const mast = new THREE.Group(); mast.position.set(-0.26, 0.323, -0.15); robot.add(mast);
+cyl(0.01, 0.01, 0.2, M.alu, 0, 0.1, 0, mast);
+cyl(0.05, 0.05, 0.022, M.frame, 0, 0.21, 0, mast);
+const dome = new THREE.Mesh(new THREE.SphereGeometry(0.05, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xeeeeea, roughness: 0.4 }));
+dome.scale.y = 0.5; dome.position.y = 0.221; dome.castShadow = true; mast.add(dome);
+cyl(0.018, 0.018, 0.02, M.frame, 0, 0.0, 0, mast).rotation.x = Math.PI / 2; // hinge
+anchors.gnss = new THREE.Vector3(-0.26, 0.57, -0.15);
+
+// e-stop
+cyl(0.022, 0.022, 0.025, M.yellow, -0.27, 0.335, 0.15);
+cyl(0.026, 0.02, 0.02, M.red, -0.27, 0.358, 0.15);
+anchors.estop = new THREE.Vector3(-0.27, 0.37, 0.15);
+
+// weed bin (rear)
+box(0.1, 0.13, 0.3, M.frame, -0.345, 0.25, 0);
+box(0.104, 0.012, 0.304, M.hub, -0.345, 0.32, 0);
+anchors.bin = new THREE.Vector3(-0.39, 0.25, 0.12);
+
+// swappable battery on the side
+box(0.2, 0.08, 0.02, M.frame, 0.04, 0.24, 0.212);
+box(0.04, 0.012, 0.022, M.alu, 0.04, 0.27, 0.214);
+anchors.battery = new THREE.Vector3(0.04, 0.24, 0.23);
+
+// carry handles: tubular U on each side
+function handle(z) {
+  const s = Math.sign(z);
+  const pts = [new THREE.Vector3(0.14, 0.3, z), new THREE.Vector3(0.12, 0.38, z + s * 0.012), new THREE.Vector3(-0.12, 0.38, z + s * 0.012), new THREE.Vector3(-0.14, 0.3, z)];
+  const curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.2);
+  const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 30, 0.011, 10), M.alu); m.castShadow = true; robot.add(m);
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.14, 16), M.rubber);
+  grip.rotation.z = Math.PI / 2; grip.position.set(0, 0.383, z + s * 0.012); robot.add(grip);
+}
+handle(0.19); handle(-0.19);
+anchors.handle = new THREE.Vector3(0, 0.4, -0.21);
+
+// strap points
+[[0.25, 0.2], [0.25, -0.2], [-0.25, 0.2], [-0.25, -0.2]].forEach(([x, z]) => {
+  const t = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.003, 6, 14), M.alu); t.position.set(x, 0.33, z); robot.add(t);
+});
+
+/* extraction head: lead-screw guide, rotary unit, 4 pointed tines */
+box(0.09, 0.02, 0.09, M.alu, 0, 0.332, 0); // top guide collar
+const rails = [[0.03, 0.03], [-0.03, -0.03]].map(([x, z]) => cyl(0.006, 0.006, 0.2, M.steel, x, 0.24, z));
+const head = new THREE.Group(); robot.add(head);
+const shaft = cyl(0.009, 0.009, 0.3, M.steel, 0, 0.19, 0, head);
+const motor = cyl(0.03, 0.03, 0.06, M.frame, 0, 0.05, 0, head);
+cyl(0.032, 0.032, 0.008, M.accentRing || M.shell, 0, 0.083, 0, head);
+const spin = new THREE.Group(); head.add(spin);
+cyl(0.038, 0.034, 0.014, M.alu, 0, 0.0, 0, spin);
+const TINE_L = 0.16, TINE_R = 0.03;
+const tines = [];
+for (let i = 0; i < 4; i++) {
+  const a = i * Math.PI / 2 + Math.PI / 4;
+  const p = new THREE.Group(); p.position.set(Math.cos(a) * TINE_R, -0.006, Math.sin(a) * TINE_R); p.rotation.y = -a; spin.add(p);
+  const knuckle = new THREE.Mesh(new THREE.SphereGeometry(0.008, 12, 8), M.alu); p.add(knuckle);
+  const t = new THREE.Mesh(new THREE.ConeGeometry(0.0045, TINE_L, 14), M.steel);
+  t.rotation.x = Math.PI; t.position.y = -TINE_L / 2; t.castShadow = true; p.add(t);
+  // small inward barb near the tip to cup the root ball
+  const barb = new THREE.Mesh(new THREE.ConeGeometry(0.003, 0.016, 8), M.steel);
+  barb.position.set(-0.004, -TINE_L + 0.03, 0); barb.rotation.z = -Math.PI / 2 - 0.6; p.add(barb);
+  tines.push(p);
+}
+anchors.head = new THREE.Vector3(0.02, 0.0, 0.05); // updated live (follows head)
+const HUB_REST = 0.33, HUB_DOWN = 0.06; // tip at 0.17 rest, -0.10 when plunged (depth set per weed)
+head.position.y = HUB_REST;
+function setTines(open) { // open: 1 splayed, 0 closed (tips converge)
+  const th = -0.18 + open * 0.42;
+  tines.forEach(p => { p.rotation.z = th; });
+}
+setTines(0.3);
+
+// vision camera (renders to the inset)
+const visionCam = new THREE.PerspectiveCamera(70, 4 / 3, 0.02, 4);
+visionCam.position.set(0.39, 0.25, 0);
+visionCam.lookAt(new THREE.Vector3(0.43, 0, 0));
+robot.add(visionCam);
+
+/* weeds */
+const WEEDS = [
+  { name: "Dandelion", sci: "Taraxacum officinale", kind: "dandelion", depth: 0.12 },
+  { name: "Capeweed", sci: "Arctotheca calendula", kind: "capeweed", depth: 0.08 },
+  { name: "Native violet", sci: "Viola hederacea", kind: "violet", keep: true },
+  { name: "Flatweed", sci: "Hypochaeris radicata", kind: "dandelion2", depth: 0.11 },
+  { name: "Broadleaf plantain", sci: "Plantago major", kind: "plantain", depth: 0.09 },
+  { name: "Spear thistle", sci: "Cirsium vulgare", kind: "thistle", depth: 0.13 },
+  { name: "Bindii", sci: "Soliva sessilis", kind: "bindii", depth: 0.06 }
+];
+const leafGeo = new THREE.SphereGeometry(1, 12, 8);
+function leaf(parent, len, wid, ang, tilt, color, lobes) {
+  const g = new THREE.Group(); g.rotation.y = ang; parent.add(g);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.8, side: THREE.DoubleSide });
+  const n = lobes || 1;
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(leafGeo, mat);
+    const f = (i + 0.5) / n;
+    m.scale.set(len / n * 0.75, 0.0025, wid * (1 - f * 0.45));
+    m.position.set(len * f, Math.sin(tilt) * len * f, (i % 2 ? 1 : -1) * wid * 0.25 * (n > 1 ? 1 : 0));
+    m.rotation.z = tilt; m.castShadow = true; g.add(m);
+  }
+  return g;
+}
+function flower(parent, h, color, center) {
+  const st = new THREE.Mesh(new THREE.CylinderGeometry(0.0018, 0.0022, h, 6), new THREE.MeshStandardMaterial({ color: 0x5e7a32 }));
+  st.position.y = h / 2; parent.add(st);
+  const fl = new THREE.Mesh(new THREE.SphereGeometry(0.012, 14, 8), new THREE.MeshStandardMaterial({ color, roughness: 0.7 }));
+  fl.scale.y = 0.45; fl.position.y = h; fl.castShadow = true; parent.add(fl);
+  if (center) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.005, 10, 6), new THREE.MeshStandardMaterial({ color: center })); c.position.y = h + 0.004; parent.add(c); }
+}
+function buildPlant(kind) {
+  const p = new THREE.Group();
+  const top = new THREE.Group(); p.add(top);
+  const rootMat = new THREE.MeshStandardMaterial({ color: 0xc9b38a, roughness: 0.9 });
+  let rootLen = 0.1, rootR = 0.006, bound = 0.06;
+  const rnd = Math.random;
+  if (kind === "dandelion" || kind === "dandelion2") {
+    const col = kind === "dandelion" ? 0x4f7d2a : 0x5c7a30;
+    for (let i = 0; i < 9; i++) leaf(top, 0.055 + rnd() * 0.02, 0.011, i / 9 * 6.28 + rnd() * .3, 0.12, col, 4);
+    flower(top, kind === "dandelion" ? 0.07 : 0.11, 0xf2c417);
+    rootLen = 0.13; rootR = 0.007;
+  } else if (kind === "capeweed") {
+    for (let i = 0; i < 8; i++) leaf(top, 0.05, 0.016, i / 8 * 6.28, 0.1, 0x7f9a6a, 3);
+    flower(top, 0.04, 0xf3d34a, 0x2a2a20); rootLen = 0.09;
+  } else if (kind === "plantain") {
+    for (let i = 0; i < 6; i++) leaf(top, 0.05, 0.026, i / 6 * 6.28, 0.18, 0x3f6d2b, 1);
+    const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.003, 0.06, 6), new THREE.MeshStandardMaterial({ color: 0x6f6a3a })); sp.position.y = 0.06; top.add(sp);
+    rootLen = 0.08; rootR = 0.008;
+  } else if (kind === "thistle") {
+    for (let i = 0; i < 8; i++) leaf(top, 0.06, 0.014, i / 8 * 6.28, 0.22, 0x3b5e3a, 5);
+    flower(top, 0.09, 0x9a3fa0); rootLen = 0.14; rootR = 0.008; bound = 0.07;
+  } else if (kind === "bindii") {
+    for (let i = 0; i < 12; i++) leaf(top, 0.025, 0.006, i / 12 * 6.28, 0.05, 0x6f9440, 3);
+    rootLen = 0.06; rootR = 0.004; bound = 0.035;
+  } else if (kind === "violet") {
+    for (let i = 0; i < 7; i++) {
+      const g = new THREE.Group(); g.rotation.y = i / 7 * 6.28; top.add(g);
+      const m = new THREE.Mesh(new THREE.CircleGeometry(0.016, 14), new THREE.MeshStandardMaterial({ color: 0x3f7a3a, side: THREE.DoubleSide }));
+      m.rotation.x = -Math.PI / 2 + 0.3; m.position.set(0.028, 0.012, 0); g.add(m);
+    }
+    flower(top, 0.035, 0xffffff, 0x7a4fb8); rootLen = 0.04; bound = 0.045;
+  }
+  const root = new THREE.Mesh(new THREE.ConeGeometry(rootR, rootLen, 8), rootMat);
+  root.rotation.x = Math.PI; root.position.y = -rootLen / 2; p.add(root);
+  for (let i = 0; i < 4; i++) { // fine lateral roots
+    const r = new THREE.Mesh(new THREE.CylinderGeometry(0.0008, 0.0008, 0.03, 4), rootMat);
+    r.position.set(Math.cos(i * 1.7) * 0.01, -0.02 - i * 0.018, Math.sin(i * 1.7) * 0.01); r.rotation.z = 0.9 * (i % 2 ? 1 : -1); p.add(r);
+  }
+  p.userData.bound = bound;
+  return p;
+}
+
+let plants = [];
+const holes = [];
+function spawnRow() {
+  plants.forEach(p => scene.remove(p.mesh)); plants = [];
+  holes.forEach(h => scene.remove(h)); holes.length = 0;
+  const order = WEEDS.slice();
+  let x = 0.9;
+  order.forEach((w, i) => {
+    const mesh = buildPlant(w.kind);
+    const z = (i % 2 ? 1 : -1) * (0.04 + Math.random() * 0.1);
+    mesh.position.set(x, 0, z); mesh.rotation.y = Math.random() * 6.28;
+    scene.add(mesh);
+    plants.push({ w, mesh, x, z, state: "ground", conf: 0.86 + Math.random() * 0.12 });
+    x += 0.85 + Math.random() * 0.35;
+  });
+  // clover-ish filler that the robot ignores (lawn)
+}
+
+/* hole + sand decals */
+const holeGeo = new THREE.CircleGeometry(0.03, 24);
+function makeHole(x, z) {
+  const m = new THREE.Mesh(holeGeo, new THREE.MeshStandardMaterial({ color: 0x2c2216, roughness: 1 }));
+  m.rotation.x = -Math.PI / 2; m.position.set(x, 0.0015, z); m.receiveShadow = true;
+  scene.add(m); holes.push(m); return m;
+}
+
+/* sand particles */
+const PN = 260;
+const pGeo = new THREE.BufferGeometry();
+const pPos = new Float32Array(PN * 3).fill(-99);
+pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+const parts = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xe0c07e, size: 0.007, sizeAttenuation: true }));
+parts.frustumCulled = false; scene.add(parts);
+const pv = []; for (let i = 0; i < PN; i++) pv.push({ alive: false, v: new THREE.Vector3() });
+let pNext = 0;
+function emitSand(wx, wz) {
+  for (let k = 0; k < 3; k++) {
+    const i = pNext; pNext = (pNext + 1) % PN;
+    pPos[i * 3] = wx + (Math.random() - .5) * 0.006; pPos[i * 3 + 1] = 0.04; pPos[i * 3 + 2] = wz + (Math.random() - .5) * 0.006;
+    pv[i].alive = true; pv[i].v.set((Math.random() - .5) * 0.05, -0.2, (Math.random() - .5) * 0.05);
+  }
+}
+function stepSand(dt) {
+  for (let i = 0; i < PN; i++) {
+    if (!pv[i].alive) continue;
+    pv[i].v.y -= 9.8 * dt * 0.4;
+    pPos[i * 3] += pv[i].v.x * dt; pPos[i * 3 + 1] += pv[i].v.y * dt; pPos[i * 3 + 2] += pv[i].v.z * dt;
+    if (pPos[i * 3 + 1] < 0.002) { pv[i].alive = false; pPos[i * 3 + 1] = -99; }
+  }
+  pGeo.attributes.position.needsUpdate = true;
+}
+
+/* state machine */
+const STEPS = ["patrol", "detect", "align", "plunge", "grip", "extract", "stow", "step", "fill"];
+const stepEls = [...document.querySelectorAll("#steps li")];
+let phase = "patrol", tPhase = 0, target = null, pulled = 0, sandL = 4.0, holeMesh = null, holeX = 0, holeZ = 0;
+const R = { x: -0.6, z: 0, yaw: 0 };
+let speedMul = 1, running = !reduceMotion;
+function setPhase(p) {
+  phase = p; tPhase = 0;
+  stepEls.forEach((el, i) => el.classList.toggle("on", STEPS[i] === p));
+}
+setPhase("patrol");
+const rPulled = document.getElementById("r-pulled"), rLast = document.getElementById("r-last"), rSand = document.getElementById("r-sand");
+
+function nextTarget() { return plants.find(p => p.state === "ground" && !p.w.keep && p.x > R.x + 0.05); }
+const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+const clamp01 = t => Math.max(0, Math.min(1, t));
+const WHEEL_R = 0.11;
+let wheelRot = 0;
+
+function drive(dx, dt) {
+  R.x += dx; wheelRot -= dx / WHEEL_R;
+}
+function steerTo(z, dt) {
+  const dz = z - R.z, vz = Math.max(-0.08, Math.min(0.08, dz * 1.6));
+  R.z += vz * dt; R.yaw += ((-Math.atan2(vz, 0.25) * 0.8) - R.yaw) * Math.min(1, dt * 6);
+}
+
+function update(dt) {
+  tPhase += dt;
+  const V = 0.25;
+  if (phase === "patrol") {
+    target = nextTarget();
+    if (!target) {
+      drive(V * dt, dt); steerTo(0, dt);
+      if (R.x > plants[plants.length - 1].x + 1.2) { R.x = -0.6; R.z = 0; spawnRow(); snapCam(); }
+    } else {
+      drive(V * dt, dt); steerTo(target.z, dt);
+      if (target.x - R.x < 0.47) setPhase("detect");
+    }
+  } else if (phase === "detect") {
+    steerTo(target.z, dt);
+    if (tPhase > 0.9) { rLast.textContent = target.w.name; setPhase("align"); }
+  } else if (phase === "align") {
+    const dx = target.x - R.x;
+    const v = Math.min(V * 0.6, Math.max(0.03, dx * 1.5));
+    drive(Math.min(dx, v * dt), dt); steerTo(target.z, dt);
+    R.yaw *= 1 - Math.min(1, dt * 5);
+    if (dx < 0.002) { R.x = target.x; R.z = target.z; R.yaw = 0; setPhase("plunge"); }
+  } else if (phase === "plunge") {
+    const d = 0.9, k = ease(clamp01(tPhase / d));
+    const down = HUB_DOWN + (0.12 - target.w.depth);
+    head.position.y = HUB_REST + (down - HUB_REST) * k;
+    setTines(0.3 + 0.7 * clamp01(tPhase / 0.3));
+    if (tPhase > d) setPhase("grip");
+  } else if (phase === "grip") {
+    const k = ease(clamp01(tPhase / 0.5));
+    setTines(1 - k);
+    if (tPhase > 0.6) {
+      // attach the plant to the spinning hub
+      const m = target.mesh; scene.remove(m); spin.add(m);
+      m.position.set(0, -(head.position.y - 0), 0); m.rotation.set(0, m.rotation.y, 0);
+      target.state = "held";
+      holeX = target.x; holeZ = target.z; holeMesh = makeHole(holeX, holeZ); holeMesh.scale.setScalar(0.6);
+      setPhase("extract");
+    }
+  } else if (phase === "extract") {
+    const d = 1.2, k = ease(clamp01(tPhase / d));
+    const down = HUB_DOWN + (0.12 - target.w.depth);
+    head.position.y = down + (HUB_REST + 0.03 - down) * k;
+    spin.rotation.y = -0.52 * clamp01(tPhase / 0.4);
+    target.mesh.position.y = -(down) ; // plant keeps its offset relative to hub
+    if (holeMesh) holeMesh.scale.setScalar(0.6 + 0.4 * clamp01(tPhase / 0.3));
+    if (tPhase > d) setPhase("stow");
+  } else if (phase === "stow") {
+    const d = 0.9, k = clamp01(tPhase / d);
+    setTines(clamp01(tPhase / 0.25) * 0.8);
+    const m = target.mesh;
+    if (m.parent === spin && tPhase > 0.15) { // wiper strips it; it travels to the rear bin
+      const wp = new THREE.Vector3(); m.getWorldPosition(wp); spin.remove(m); robot.add(m);
+      robot.worldToLocal(wp); m.position.copy(wp);
+      m.userData.from = wp.clone();
+    }
+    if (m.parent === robot) {
+      const f = m.userData.from, kk = ease(clamp01((tPhase - 0.15) / 0.65));
+      m.position.set(f.x + (-0.34 - f.x) * kk, f.y + Math.sin(kk * Math.PI) * 0.12 + (0.33 - f.y) * kk, f.z * (1 - kk));
+      m.scale.setScalar(1 - kk * 0.7);
+      if (kk >= 1) m.visible = false;
+    }
+    spin.rotation.y *= 1 - Math.min(1, dt * 4);
+    if (tPhase > d) {
+      robot.remove(m); target.state = "pulled"; pulled++; rPulled.textContent = pulled;
+      head.position.y = HUB_REST; setTines(0.3); spin.rotation.y = 0;
+      target.stepFrom = R.x; setPhase("step");
+    }
+  } else if (phase === "step") {
+    const goal = target.stepFrom + (-HOP_X);
+    const dx = goal - R.x; drive(Math.min(dx, 0.12 * dt), dt);
+    if (dx < 0.001) { R.x = goal; setPhase("fill"); }
+  } else if (phase === "fill") {
+    const d = 1.5;
+    if (tPhase < d - 0.3) emitSand(holeX, holeZ);
+    const k = clamp01(tPhase / (d - 0.2));
+    holeMesh.material.color.setRGB(0.17 + (0.85 - 0.17) * k, 0.13 + (0.72 - 0.13) * k, 0.09 + (0.47 - 0.09) * k);
+    if (tPhase > d) {
+      const ml = 15 + target.w.depth / 0.13 * 15;
+      sandL = Math.max(0, sandL - ml / 1000 * 8); // scaled up so the level visibly changes
+      if (sandL < 0.6) sandL = 4.0; // operator refills
+      rSand.textContent = sandL.toFixed(2) + " L";
+      setPhase("patrol");
+    }
+  }
+}
+
+function applyRobot() {
+  robot.position.set(R.x, 0, R.z);
+  robot.rotation.y = R.yaw;
+  wheels.forEach(w => { w.rotation.z = wheelRot; });
+  lidarHead.rotation.y += 0.2;
+  const lvl = sandL / 4.0 * 0.11;
+  sandFill.scale.y = Math.max(0.002, lvl); sandFill.position.y = 0.006 + lvl / 2;
+  anchors.head.set(0.02, head.position.y - TINE_L * 0.7, 0.05);
+}
+
+/* camera presets that follow the robot */
+const VIEWS = {
+  over: { off: new THREE.Vector3(1.3, 0.85, 1.35), tgt: new THREE.Vector3(0.05, 0.18, 0) },
+  head: { off: new THREE.Vector3(0.06, 0.02, 1.05), tgt: new THREE.Vector3(0, 0.12, 0) },
+  side: { off: new THREE.Vector3(0.0, 0.25, 1.75), tgt: new THREE.Vector3(0.0, 0.22, 0) },
+  carry: { off: new THREE.Vector3(-1.0, 0.95, -1.1), tgt: new THREE.Vector3(0, 0.25, 0) }
+};
+let view = "over", camAnim = null;
+function robotBase() { return new THREE.Vector3(R.x, 0, R.z); }
+function snapCam() {
+  const v = VIEWS[view], b = robotBase();
+  controls.target.copy(b).add(v.tgt); camera.position.copy(b).add(v.tgt).add(v.off);
+}
+function goView(name) {
+  view = name;
+  const v = VIEWS[name], b = robotBase();
+  camAnim = { t: 0, p0: camera.position.clone().sub(b), t0: controls.target.clone().sub(b), p1: v.tgt.clone().add(v.off), t1: v.tgt.clone() };
+  document.querySelectorAll('[id^="v-"]').forEach(btn => btn.setAttribute("aria-pressed", String(btn.id === "v-" + name)));
+}
+["over", "head", "side", "carry"].forEach(n => document.getElementById("v-" + n).addEventListener("click", () => goView(n)));
+let lastBase = robotBase();
+function followCam(dt) {
+  const b = robotBase();
+  if (camAnim) {
+    camAnim.t = Math.min(1, camAnim.t + dt / 1.1); const k = ease(camAnim.t);
+    controls.target.copy(b).add(camAnim.t0.clone().lerp(camAnim.t1, k));
+    camera.position.copy(b).add(camAnim.p0.clone().lerp(camAnim.p1, k));
+    if (camAnim.t >= 1) camAnim = null;
+  } else {
+    const d = b.clone().sub(lastBase);
+    camera.position.add(d); controls.target.add(d);
+  }
+  lastBase = b;
+}
+
+/* toggles */
+const cutBtn = document.getElementById("t-cut");
+cutBtn.addEventListener("click", () => {
+  const on = cutBtn.getAttribute("aria-pressed") !== "true"; cutBtn.setAttribute("aria-pressed", String(on));
+  M.shell.transparent = on; M.shell.opacity = on ? 0.22 : 1; M.shell.depthWrite = !on; M.shell.needsUpdate = true;
+  shell.castShadow = !on;
+});
+const labBtn = document.getElementById("t-lab");
+let showLabels = true;
+labBtn.addEventListener("click", () => { showLabels = !showLabels; labBtn.setAttribute("aria-pressed", String(showLabels)); });
+const playBtn = document.getElementById("t-play");
+function syncPlay() { playBtn.setAttribute("aria-pressed", String(running)); playBtn.textContent = running ? "Running" : "Paused"; }
+playBtn.addEventListener("click", () => { running = !running; syncPlay(); });
+syncPlay();
+const spd = document.getElementById("spd"), spdV = document.getElementById("spd-v");
+spd.addEventListener("input", () => { speedMul = +spd.value; spdV.textContent = speedMul + "×"; });
+
+/* labels */
+const LABELS = [
+  ["head", "1", "4-tine extraction head"], ["vision", "2", "Vision camera + shade hood"], ["hopper", "3", "Sand tank 4 L"],
+  ["nozzle", "4", "Backfill nozzle"], ["lidar", "5", "LiDAR (auto-map)"], ["gnss", "6", "RTK-GNSS antenna"],
+  ["handle", "7", "Carry handle"], ["bin", "8", "Weed bin"], ["stereo", "9", "Stereo obstacle cams"],
+  ["tyre", "10", "Low-pressure tyre"], ["estop", "11", "E-stop"], ["battery", "12", "Hot-swap battery"]
+];
+const labelEls = LABELS.map(([k, n, t]) => {
+  const d = document.createElement("div"); d.className = "label3d"; d.innerHTML = "<i>" + n + "</i>" + t; overlay.appendChild(d); return { k, d };
+});
+
+/* vision inset overlay canvas */
+const ov = document.createElement("canvas"); ov.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none";
+overlay.appendChild(ov); const og = ov.getContext("2d");
+const vtag = document.createElement("div"); vtag.className = "vision-tag"; vtag.textContent = "VISION CAM · 30 FPS"; overlay.appendChild(vtag);
+
+let W = 0, H = 0, dpr = 1;
+function resize() {
+  W = stage.clientWidth; H = stage.clientHeight; dpr = renderer.getPixelRatio();
+  renderer.setSize(W, H); camera.aspect = W / H; camera.updateProjectionMatrix();
+  ov.width = W * dpr; ov.height = H * dpr;
+}
+window.addEventListener("resize", resize); resize();
+
+function insetRect() {
+  const w = Math.round(Math.min(300, W * 0.42)), h = Math.round(w * 0.75);
+  return { x: W - w - Math.max(14, 14), y: H - h - 14, w, h };
+}
+const tmpV = new THREE.Vector3(), tmpB = new THREE.Box3();
+function drawOverlay() {
+  og.setTransform(dpr, 0, 0, dpr, 0, 0); og.clearRect(0, 0, W, H);
+  const r = insetRect();
+  // inset frame
+  og.strokeStyle = "#1c2620"; og.lineWidth = 2; og.strokeRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
+  vtag.style.left = r.x + "px"; vtag.style.top = (r.y - 18) + "px";
+  // reticle at tine axis projection
+  og.save(); og.beginPath(); og.rect(r.x, r.y, r.w, r.h); og.clip();
+  plants.forEach(p => {
+    if (p.state !== "ground") return;
+    tmpB.setFromObject(p.mesh.children[0]); // leaves only
+    const pts = [];
+    for (let i = 0; i < 8; i++) {
+      tmpV.set(i & 1 ? tmpB.max.x : tmpB.min.x, i & 2 ? tmpB.max.y : tmpB.min.y, i & 4 ? tmpB.max.z : tmpB.min.z);
+      tmpV.project(visionCam);
+      if (tmpV.z > 1) return;
+      pts.push([r.x + (tmpV.x * 0.5 + 0.5) * r.w, r.y + (-tmpV.y * 0.5 + 0.5) * r.h]);
+    }
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); });
+    if (x1 < r.x || x0 > r.x + r.w || y1 < r.y || y0 > r.y + r.h) return;
+    const isT = target === p && phase !== "patrol";
+    const col = p.w.keep ? "#2f8a57" : isT ? "#e2611c" : "#1f7fb8";
+    og.strokeStyle = col; og.lineWidth = 2; og.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    const txt = p.w.keep ? p.w.name + " · keep" : (isT ? p.w.name + " " + Math.round(p.conf * 100) + "%" : "weed?");
+    og.font = "600 10px 'IBM Plex Mono', monospace";
+    const tw = og.measureText(txt).width + 8;
+    og.fillStyle = col; og.fillRect(x0, y0 - 14, tw, 14);
+    og.fillStyle = "#fff"; og.fillText(txt, x0 + 4, y0 - 4);
+    if (isT) { og.font = "italic 10px 'IBM Plex Mono', monospace"; og.fillStyle = "#fff"; og.fillText(p.w.sci, x0 + 2, y1 + 12); }
+  });
+  // centre crosshair
+  og.strokeStyle = "rgba(255,255,255,.7)"; og.lineWidth = 1;
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  og.beginPath(); og.moveTo(cx - 8, cy); og.lineTo(cx + 8, cy); og.moveTo(cx, cy - 8); og.lineTo(cx, cy + 8); og.stroke();
+  og.restore();
+
+  // labels
+  labelEls.forEach(({ k, d }) => {
+    if (!showLabels) { d.style.display = "none"; return; }
+    tmpV.copy(anchors[k]); robot.localToWorld(tmpV); tmpV.project(camera);
+    const x = (tmpV.x * 0.5 + 0.5) * W, y = (-tmpV.y * 0.5 + 0.5) * H;
+    const inInset = x > r.x - 150 && y > r.y - 20;
+    if (tmpV.z > 1 || x < 0 || x > W - 40 || y < 0 || y > H || inInset) { d.style.display = "none"; return; }
+    d.style.display = "block"; d.style.transform = `translate(${x + 10}px, ${y}px) translateY(-50%)`;
+  });
+}
+
+const clock = new THREE.Clock();
+spawnRow(); applyRobot(); snapCam();
+function frame() {
+  const raw = Math.min(clock.getDelta(), 0.05);
+  if (running) { const dt = raw * speedMul; update(dt); stepSand(dt); }
+  applyRobot();
+  followCam(raw);
+  controls.update();
+  sun.position.set(R.x + 2.5, 4, R.z + 1.8); sun.target.position.set(R.x, 0, R.z);
+
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, W, H); renderer.render(scene, camera);
+  const r = insetRect();
+  renderer.setScissorTest(true);
+  renderer.setScissor(r.x, H - r.y - r.h, r.w, r.h); renderer.setViewport(r.x, H - r.y - r.h, r.w, r.h);
+  visionCam.aspect = r.w / r.h; visionCam.updateProjectionMatrix();
+  const fog = scene.fog; scene.fog = null;
+  M.led.emissiveIntensity = 0; renderer.render(scene, visionCam); M.led.emissiveIntensity = 1.2;
+  scene.fog = fog;
+  drawOverlay();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------------------------------------------------------------- MAP */
+const map = document.getElementById("map"), mg = map.getContext("2d");
+const MW = map.width, MH = map.height;
+const S = 7.4, OX = 60, OY = 40; // px per metre, origin offset
+const toPx = ([x, y]) => [OX + x * S, OY + y * S];
+const toM = (px, py) => [(px - OX) / S, (py - OY) / S];
+const boundary = [[0, 6], [52, 0], [128, 4], [140, 46], [133, 92], [70, 96], [8, 90], [2, 48]];
+const perimeter = [[6, 11], [50, 5.5], [123, 9], [134, 46], [127, 86], [70, 90], [13, 84], [8, 48]];
+const obstacles = [
+  { t: "circle", c: [30, 30], r: 4.5, name: "Gum tree" }, { t: "circle", c: [96, 70], r: 5, name: "Jacaranda" },
+  { t: "circle", c: [112, 24], r: 3.2, name: "Lemon tree" }, { t: "rect", x: 18, y: 58, w: 14, h: 10, name: "Shed" },
+  { t: "circle", c: [38, 64], r: 2.2, name: "Water tank" }, { t: "rect", x: 64, y: 14, w: 22, h: 16, name: "House" }
+];
+const baseZones = [
+  { x: 92, y: 36, w: 20, h: 14, name: "Veggie garden" }, { x: 48, y: 70, w: 16, h: 14, name: "Septic field" },
+  { poly: circlePoly([116, 66], 7, 20), name: "Dam" }, { x: 64, y: 40, w: 14, h: 10, name: "Kids' play area" }
+];
+let userZones = [];
+function circlePoly(c, r, n) { const a = []; for (let i = 0; i < n; i++) a.push([c[0] + Math.cos(i / n * 6.283) * r, c[1] + Math.sin(i / n * 6.283) * r]); return a; }
+function zonePoly(z) { return z.poly || [[z.x, z.y], [z.x + z.w, z.y], [z.x + z.w, z.y + z.h], [z.x, z.y + z.h]]; }
+function pip(p, poly) {
+  let ins = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if (((yi > p[1]) !== (yj > p[1])) && (p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi)) ins = !ins;
+  }
+  return ins;
+}
+function area(poly) { let a = 0; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) a += (poly[j][0] + poly[i][0]) * (poly[j][1] - poly[i][1]); return Math.abs(a / 2); }
+function blocked(p) {
+  const zones = baseZones.concat(userZones);
+  if (zones.some(z => pip(p, zonePoly(z)))) return true;
+  return obstacles.some(o => o.t === "circle" ? Math.hypot(p[0] - o.c[0], p[1] - o.c[1]) < o.r + 1 : (p[0] > o.x - 1 && p[0] < o.x + o.w + 1 && p[1] > o.y - 1 && p[1] < o.y + o.h + 1));
+}
+let lanes = [], pathPts = [];
+function computeLanes() {
+  lanes = []; pathPts = [];
+  let dir = 1;
+  for (let y = 9; y < 92; y += 4) {
+    const segs = []; let cur = null;
+    for (let x = 0; x <= 142; x += 0.5) {
+      const ok = pip([x, y], perimeter) && !blocked([x, y]);
+      if (ok && !cur) cur = [x, x]; else if (ok) cur[1] = x; else if (cur) { segs.push(cur); cur = null; }
+    }
+    if (cur) segs.push(cur);
+    const ordered = dir > 0 ? segs : segs.map(s => [s[1], s[0]]).reverse();
+    ordered.forEach(s => { lanes.push({ y, a: s[0], b: s[1] }); pathPts.push([s[0], y], [s[1], y]); });
+    dir *= -1;
+  }
+  // stats via sampling
+  let op = 0, ex = 0;
+  for (let x = 0; x < 142; x += 1) for (let y = 0; y < 98; y += 1) {
+    const p = [x + .5, y + .5]; if (!pip(p, perimeter)) continue;
+    if (blocked(p)) ex++; else op++;
+  }
+  const fmt = n => n.toLocaleString("en-AU");
+  document.getElementById("s-prop").textContent = fmt(Math.round(area(boundary))) + " m²";
+  document.getElementById("s-op").textContent = fmt(op) + " m²";
+  document.getElementById("s-ex").textContent = fmt(ex) + " m²";
+  const hrs = op / (0.25 * 0.5) / 3600 * 1.15;
+  document.getElementById("s-time").textContent = hrs.toFixed(1) + " h";
+  document.getElementById("s-bat").textContent = String(Math.max(0, Math.ceil(hrs / 4) - 1));
+}
+computeLanes();
+
+const layer = id => document.getElementById(id).checked;
+["l-bound", "l-perim", "l-excl", "l-obs", "l-path"].forEach(id => document.getElementById(id).addEventListener("change", drawMap));
+let autoT = -1, robotT = 0, drag = null;
+
+function polyPath(poly) { mg.beginPath(); poly.forEach((p, i) => { const [x, y] = toPx(p); i ? mg.lineTo(x, y) : mg.moveTo(x, y); }); mg.closePath(); }
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function perimLen(poly) { let L = 0; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; L += Math.hypot(b[0] - a[0], b[1] - a[1]); } return L; }
+function pointAlong(poly, d) {
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (d <= l) return [a[0] + (b[0] - a[0]) * d / l, a[1] + (b[1] - a[1]) * d / l, i];
+    d -= l;
+  }
+  return [poly[0][0], poly[0][1], poly.length - 1];
+}
+function drawMap() {
+  const ink = cssVar("--ink"), panel = cssVar("--panel"), muted = cssVar("--muted"), acc = cssVar("--accent"), scan = cssVar("--scan");
+  mg.fillStyle = panel; mg.fillRect(0, 0, MW, MH);
+  // grid (10 m)
+  mg.strokeStyle = cssVar("--rule"); mg.lineWidth = 1;
+  for (let x = 0; x <= 150; x += 10) { const [px] = toPx([x, 0]); mg.beginPath(); mg.moveTo(px, 0); mg.lineTo(px, MH); mg.stroke(); }
+  for (let y = 0; y <= 100; y += 10) { const [, py] = toPx([0, y]); mg.beginPath(); mg.moveTo(0, py); mg.lineTo(MW, py); mg.stroke(); }
+  const mapping = autoT >= 0;
+  const BL = perimLen(boundary);
+  let traced = BL, scanPt = null;
+  if (mapping) { traced = autoT * BL; scanPt = pointAlong(boundary, traced); }
+  const seen = o => { if (!mapping) return true; const c = o.t === "circle" ? o.c : [o.x + o.w / 2, o.y + o.h / 2]; return o.seenAt !== undefined && o.seenAt <= autoT; };
+
+  // turf fill inside boundary
+  if (!mapping) { polyPath(boundary); mg.fillStyle = "rgba(95,122,60,.12)"; mg.fill(); }
+
+  if (layer("l-path") && !mapping) {
+    mg.strokeStyle = scan; mg.lineWidth = 1.6;
+    mg.beginPath(); pathPts.forEach((p, i) => { const [x, y] = toPx(p); i ? mg.lineTo(x, y) : mg.moveTo(x, y); }); mg.globalAlpha = .25; mg.stroke(); mg.globalAlpha = 1;
+    lanes.forEach(l => { const [a, y] = toPx([l.a, l.y]), [b] = toPx([l.b, l.y]); mg.beginPath(); mg.moveTo(a, y); mg.lineTo(b, y); mg.stroke(); });
+  }
+  if (layer("l-excl") && !mapping) {
+    baseZones.concat(userZones).forEach(z => {
+      polyPath(zonePoly(z)); mg.fillStyle = "rgba(184,54,43,.16)"; mg.fill();
+      mg.strokeStyle = "#b8362b"; mg.lineWidth = 1.5; mg.setLineDash([]); mg.stroke();
+      const pp = zonePoly(z); const c = pp.reduce((s, p) => [s[0] + p[0] / pp.length, s[1] + p[1] / pp.length], [0, 0]);
+      const [x, y] = toPx(c); mg.fillStyle = "#b8362b"; mg.font = "600 13px 'IBM Plex Mono', monospace"; mg.textAlign = "center"; mg.fillText(z.name, x, y + 4);
+    });
+  }
+  if (layer("l-obs")) {
+    obstacles.forEach(o => {
+      if (!seen(o)) return;
+      mg.fillStyle = "#7d8f80"; mg.strokeStyle = "#3a4a40"; mg.lineWidth = 1.5;
+      let lx, ly;
+      if (o.t === "circle") { const [x, y] = toPx(o.c); mg.beginPath(); mg.arc(x, y, o.r * S, 0, 7); mg.fill(); mg.stroke(); lx = x; ly = y + o.r * S + 14; }
+      else { const [x, y] = toPx([o.x, o.y]); mg.fillRect(x, y, o.w * S, o.h * S); mg.strokeRect(x, y, o.w * S, o.h * S); lx = x + o.w * S / 2; ly = y + o.h * S + 14; }
+      mg.fillStyle = muted; mg.font = "12px 'IBM Plex Mono', monospace"; mg.textAlign = "center"; mg.fillText(o.name, lx, ly);
+    });
+  }
+  if (layer("l-bound")) {
+    mg.strokeStyle = ink; mg.lineWidth = 3; mg.setLineDash([]);
+    if (mapping) {
+      mg.beginPath(); let d = 0; const [sx, sy] = toPx(boundary[0]); mg.moveTo(sx, sy);
+      for (let i = 0; i < boundary.length; i++) {
+        const a = boundary[i], b = boundary[(i + 1) % boundary.length], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (d + l <= traced) { const [x, y] = toPx(b); mg.lineTo(x, y); d += l; } else { const [x, y] = toPx([scanPt[0], scanPt[1]]); mg.lineTo(x, y); break; }
+      }
+      mg.stroke();
+    } else { polyPath(boundary); mg.stroke(); }
+    // vertices (survey pegs)
+    boundary.forEach((p, i) => { if (mapping && i > (scanPt ? scanPt[2] : 0)) return; const [x, y] = toPx(p); mg.fillStyle = ink; mg.fillRect(x - 3, y - 3, 6, 6); });
+  }
+  if (layer("l-perim") && !mapping) {
+    polyPath(perimeter); mg.strokeStyle = acc; mg.lineWidth = 2.5; mg.setLineDash([10, 6]); mg.stroke(); mg.setLineDash([]);
+  }
+  // scale bar + north
+  mg.fillStyle = ink; mg.strokeStyle = ink; mg.lineWidth = 2; mg.textAlign = "left";
+  const [sbx, sby] = [MW - 220, MH - 26];
+  mg.beginPath(); mg.moveTo(sbx, sby); mg.lineTo(sbx + 20 * S, sby); mg.moveTo(sbx, sby - 6); mg.lineTo(sbx, sby + 6); mg.moveTo(sbx + 20 * S, sby - 6); mg.lineTo(sbx + 20 * S, sby + 6); mg.stroke();
+  mg.font = "12px 'IBM Plex Mono', monospace"; mg.fillText("20 m", sbx + 20 * S / 2 - 14, sby - 10);
+  mg.beginPath(); mg.moveTo(MW - 34, 22); mg.lineTo(MW - 42, 44); mg.lineTo(MW - 26, 44); mg.closePath(); mg.fill();
+  mg.fillText("N", MW - 38, 60);
+  mg.fillStyle = muted; mg.fillText("Lot 12 · 1.2 ha · RTK fixed", 16, MH - 20);
+
+  // robot
+  let rp = null;
+  if (mapping && scanPt) rp = [scanPt[0], scanPt[1]];
+  else if (pathPts.length > 1) {
+    let total = 0; const segL = [];
+    for (let i = 1; i < pathPts.length; i++) { const l = Math.hypot(pathPts[i][0] - pathPts[i - 1][0], pathPts[i][1] - pathPts[i - 1][1]); segL.push(l); total += l; }
+    let d = (robotT % 1) * total;
+    for (let i = 0; i < segL.length; i++) { if (d <= segL[i]) { const a = pathPts[i], b = pathPts[i + 1]; rp = [a[0] + (b[0] - a[0]) * d / segL[i], a[1] + (b[1] - a[1]) * d / segL[i]]; break; } d -= segL[i]; }
+  }
+  if (rp) {
+    const [x, y] = toPx(rp);
+    if (mapping) { mg.beginPath(); mg.arc(x, y, 12 * S, 0, 7); mg.fillStyle = "rgba(31,127,184,.10)"; mg.fill(); mg.strokeStyle = "rgba(31,127,184,.5)"; mg.lineWidth = 1; mg.stroke(); }
+    mg.fillStyle = acc; mg.strokeStyle = ink; mg.lineWidth = 2; mg.fillRect(x - 6, y - 6, 12, 12); mg.strokeRect(x - 6, y - 6, 12, 12);
+  }
+  if (mapping) {
+    mg.fillStyle = ink; mg.font = "600 14px 'IBM Plex Mono', monospace"; mg.textAlign = "left";
+    mg.fillText("AUTO-MAP · tracing fence line with LiDAR · " + Math.round(autoT * 100) + "%", 16, 26);
+  }
+  if (drag) {
+    const x = Math.min(drag.a[0], drag.b[0]), y = Math.min(drag.a[1], drag.b[1]);
+    const [px, py] = toPx([x, y]);
+    mg.setLineDash([6, 4]); mg.strokeStyle = "#b8362b"; mg.lineWidth = 2;
+    mg.strokeRect(px, py, Math.abs(drag.b[0] - drag.a[0]) * S, Math.abs(drag.b[1] - drag.a[1]) * S); mg.setLineDash([]);
+  }
+}
+function mapPos(e) { const r = map.getBoundingClientRect(); return toM((e.clientX - r.left) * MW / r.width, (e.clientY - r.top) * MH / r.height); }
+map.addEventListener("pointerdown", e => { if (autoT >= 0) return; drag = { a: mapPos(e), b: mapPos(e) }; map.setPointerCapture(e.pointerId); });
+map.addEventListener("pointermove", e => { if (drag) { drag.b = mapPos(e); drawMap(); } });
+map.addEventListener("pointerup", () => {
+  if (!drag) return;
+  const x = Math.min(drag.a[0], drag.b[0]), y = Math.min(drag.a[1], drag.b[1]), w = Math.abs(drag.b[0] - drag.a[0]), h = Math.abs(drag.b[1] - drag.a[1]);
+  drag = null;
+  if (w > 2 && h > 2) { userZones.push({ x, y, w, h, name: "Zone " + (userZones.length + 1) }); computeLanes(); }
+  drawMap();
+});
+document.getElementById("m-clear").addEventListener("click", () => { userZones = []; computeLanes(); drawMap(); });
+document.getElementById("m-auto").addEventListener("click", () => {
+  autoT = 0;
+  const BL = perimLen(boundary);
+  obstacles.forEach(o => { o.seenAt = undefined; });
+  // pre-compute when each obstacle comes within LiDAR range (12 m) of the fence trace
+  for (let k = 0; k <= 400; k++) {
+    const t = k / 400, p = pointAlong(boundary, t * BL);
+    obstacles.forEach(o => {
+      if (o.seenAt !== undefined) return;
+      const c = o.t === "circle" ? o.c : [Math.max(o.x, Math.min(p[0], o.x + o.w)), Math.max(o.y, Math.min(p[1], o.y + o.h))];
+      const d = Math.hypot(p[0] - c[0], p[1] - c[1]) - (o.t === "circle" ? o.r : 0);
+      if (d < 22) o.seenAt = t;
+    });
+  }
+  obstacles.forEach(o => { if (o.seenAt === undefined) o.seenAt = 1; });
+});
+let lastMap = performance.now();
+function mapLoop(now) {
+  const dt = Math.min(0.05, (now - lastMap) / 1000); lastMap = now;
+  if (autoT >= 0) { autoT += dt / 9; if (autoT >= 1) autoT = -1; }
+  else if (!reduceMotion) robotT += dt / 140;
+  drawMap();
+  requestAnimationFrame(mapLoop);
+}
+drawMap();
+requestAnimationFrame(mapLoop);
+})();
+</script>
+</body>
+</html>
