@@ -15,7 +15,7 @@ Open [`render/index.html`](render/index.html) in a browser. It's a single file, 
 
 | | |
 |---|---|
-| Envelope | 620 × 450 × 390 mm (mast folded), fits a standard ATV rear rack |
+| Envelope | 850 × 610 × 505 mm (mast folded), 565 mm mast up. Fits crosswise on a standard ATV rear rack |
 | Mass | 18.5 kg dry, 24.5 kg with a full sand tank. Two side carry handles, four strap points |
 | Drive | 4WD skid-steer hub motors, 220 × 90 mm low-pressure tyres (~12 kPa ground pressure), 0.25 m/s working |
 | Extraction | 4 × 8 mm stainless pointed tines on a 30 mm pivot circle. They plunge splayed, close under the root ball, twist 30° and lift slowly. Depth 40–130 mm, set per species |
