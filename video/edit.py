@@ -36,7 +36,7 @@ TITLES = {
     "s5": [("ROOT EXTRACTION", "Four steel tines. The whole root.", "No digging. No chemicals.", 0.6, 7.7)],
     "s6": [("SOIL CARE", "Every hole backfilled with sand.", "The lawn stays level, like a repaired green.", 0.5, 4.75)],
     "s7": [("AUTONOMOUS", "Works on its own.", "RTK-GNSS positioning to ±2 cm", 0.4, 4.3)],
-    "s8": [("PORTABLE", "One lift. Into the ATV.", "18.5 kg  ·  Two carry handles  ·  Four strap points", 0.5, 5.8)],
+    "s8": [("PORTABLE", "One lift. Into the ATV.", "850 × 610 mm  ·  18.5 kg  ·  Two carry handles", 0.5, 5.8)],
     "s9": [("WP-1", "Pull weeds. Not your back.", None, 2.2, 7.4)],
 }
 
@@ -340,8 +340,6 @@ def overlay_s8(img, t, trk):
         d.rectangle((cx - tw / 2 - 12, cy - 22 + side * 36, cx + tw / 2 + 12, cy + 18 + side * 36), fill=(14, 18, 16, int(210 * k)))
         d.text((cx, cy - 2 + side * 36), label, font=f, fill=(255, 255, 255, al), anchor="mm")
 
-    dim(trk["len_a"], trk["len_b"], "850 mm", 1)
-    dim(trk["wid_a"], trk["wid_b"], "610 mm", 1)
     g = trk["grip"]
     gx, gy = g[0] * W, g[1] * H
     k2 = ease_out((t - 1.8) / 0.6)
