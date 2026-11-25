@@ -268,7 +268,9 @@ def build_robot(M):
 
     # LiDAR puck
     mesh_obj("LidarBase", bm_cyl(0.045, 0.048, 0.035, 48, (0.2, 0, 0.338)), M["graphite"], root, bevel=0.006)
-    R["lidar"] = mesh_obj("LidarWindow", bm_cyl(0.04, 0.04, 0.03, 48, (0.2, 0, 0.37)), M["lens"], root)
+    # built at the origin then moved, so the spin pivots on the puck's own axis
+    R["lidar"] = mesh_obj("LidarWindow", bm_cyl(0.04, 0.04, 0.03, 48, (0, 0, 0)), M["lens"], root)
+    R["lidar"].location = (0.2, 0, 0.37)
     mesh_obj("LidarCap", bm_cyl(0.044, 0.044, 0.012, 48, (0.2, 0, 0.391)), M["graphite"], root, bevel=0.005)
 
     # sand hopper: smoked clear wall, orange collar, graphite lid
